@@ -13,8 +13,8 @@ service cloud.firestore {
       allow read: if request.auth != null;
       // 認証済みユーザーがルームを作成できる
       allow create: if request.auth != null;
-      // ホストのみルームを更新できる
-      allow update: if request.auth != null
+      // ホストのみルームを更新・削除できる
+      allow update, delete: if request.auth != null
         && request.auth.uid == resource.data.hostId;
 
       match /participants/{participantId} {
@@ -23,8 +23,8 @@ service cloud.firestore {
         // 自分のドキュメントを作成できる
         allow create: if request.auth != null
           && request.auth.uid == participantId;
-        // 自分またはホストが更新できる
-        allow update: if request.auth != null
+        // 自分またはホストが更新できる、ホストは削除も可能
+        allow update, delete: if request.auth != null
           && (request.auth.uid == participantId
               || request.auth.uid == get(/databases/$(database)/documents/rooms/$(roomCode)).data.hostId);
       }

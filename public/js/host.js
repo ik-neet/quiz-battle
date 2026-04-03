@@ -12,6 +12,7 @@ const Host = {
   timerRemaining: 0,
   unsubRoom: null,
   unsubParticipants: null,
+  ROOM_EXPIRE_HOURS: 3,
 
   /* ---------- セットアップ ---------- */
 
@@ -200,11 +201,27 @@ const Host = {
 
     App.showLoading();
     try {
-      // アクティブな部屋数チェック（finished以外）
+      // 期限切れ部屋のクリーンアップ + アクティブ部屋数チェック
       const activeRooms = await db.collection('rooms')
         .where('status', 'in', ['waiting', 'playing', 'tally', 'reveal'])
         .get();
-      if (activeRooms.size >= App.MAX_ROOMS) {
+
+      const expireMs = this.ROOM_EXPIRE_HOURS * 60 * 60 * 1000;
+      const now = Date.now();
+      let activeCount = 0;
+
+      for (const roomDoc of activeRooms.docs) {
+        const data = roomDoc.data();
+        const createdAt = data.createdAt ? data.createdAt.toMillis() : 0;
+        if (now - createdAt > expireMs) {
+          // 期限切れ → 自動的にfinishedに変更
+          await roomDoc.ref.update({ status: 'expired' });
+        } else {
+          activeCount++;
+        }
+      }
+
+      if (activeCount >= App.MAX_ROOMS) {
         App.toast(`同時に存在できる部屋は${App.MAX_ROOMS}つまでです`);
         App.hideLoading();
         return;
@@ -557,9 +574,38 @@ const Host = {
     this.cleanup();
   },
 
+  /** ロビーから部屋を閉じる */
+  async closeRoom() {
+    if (!this.roomRef) return;
+    if (!confirm('本当にこの部屋を閉じますか？')) return;
+
+    App.showLoading();
+    try {
+      // 参加者サブコレクションを削除
+      const pSnap = await this.participantsRef.get();
+      const batch = db.batch();
+      pSnap.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+
+      // 部屋ドキュメントを削除
+      await this.roomRef.delete();
+
+      this.cleanup();
+      App.toast('部屋を閉じました');
+      App.goTo('host-setup');
+    } catch (e) {
+      console.error(e);
+      App.toast('部屋の削除に失敗しました');
+    }
+    App.hideLoading();
+  },
+
   cleanup() {
     clearInterval(this.timerInterval);
     if (this.unsubParticipants) this.unsubParticipants();
     if (this.unsubRoom) this.unsubRoom();
+    this.roomRef = null;
+    this.roomCode = null;
+    this.participantsRef = null;
   }
 };
