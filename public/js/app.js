@@ -2,6 +2,7 @@
 
 const App = {
   currentUser: null,
+  MAX_ROOMS: 3,
 
   async init() {
     try {
@@ -11,9 +12,45 @@ const App = {
       console.error('Auth error:', e);
       App.toast('認証に失敗しました');
     }
+
+    // セッション内で認証済みならトップ画面へ
+    if (sessionStorage.getItem('quiz-battle-access') === 'ok') {
+      App.goTo('top');
+    }
+  },
+
+  async verifyGate() {
+    const input = document.getElementById('gate-code').value.trim();
+    if (!input) { App.toast('アクセスコードを入力してください'); return; }
+
+    App.showLoading();
+    try {
+      const doc = await db.collection('config').doc('access').get();
+      if (!doc.exists) {
+        App.toast('アクセスコードが未設定です');
+        App.hideLoading();
+        return;
+      }
+      if (doc.data().passcode !== input) {
+        App.toast('アクセスコードが正しくありません');
+        App.hideLoading();
+        return;
+      }
+      sessionStorage.setItem('quiz-battle-access', 'ok');
+      App.goTo('top');
+    } catch (e) {
+      console.error(e);
+      App.toast('認証に失敗しました');
+    }
+    App.hideLoading();
   },
 
   goTo(viewName) {
+    // アクセスコード未認証ならゲート画面に戻す（ゲート自体への遷移は許可）
+    if (viewName !== 'gate' && sessionStorage.getItem('quiz-battle-access') !== 'ok') {
+      viewName = 'gate';
+    }
+
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     const el = document.getElementById('view-' + viewName);
     if (el) el.classList.add('active');

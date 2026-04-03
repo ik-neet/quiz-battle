@@ -8,8 +8,24 @@
 </head>
 <body>
 
+  <!-- ===== アクセスコード画面 ===== -->
+  <div id="view-gate" class="view active">
+    <div class="container center">
+      <h1 class="logo">クイズバトル</h1>
+      <p class="subtitle">アクセスコードを入力してください</p>
+      <div class="card" style="max-width:360px">
+        <div class="form-group">
+          <input type="password" id="gate-code" placeholder="アクセスコード"
+            style="text-align:center;font-size:1.5rem;letter-spacing:0.2rem"
+            onkeydown="if(event.key==='Enter')App.verifyGate()">
+        </div>
+        <button class="btn btn-primary btn-lg btn-full" onclick="App.verifyGate()">入場する</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== トップ画面 ===== -->
-  <div id="view-top" class="view active">
+  <div id="view-top" class="view">
     <div class="container center">
       <h1 class="logo">クイズバトル</h1>
       <p class="subtitle">みんなで楽しくクイズ大会!</p>

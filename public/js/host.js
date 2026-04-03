@@ -200,6 +200,16 @@ const Host = {
 
     App.showLoading();
     try {
+      // アクティブな部屋数チェック（finished以外）
+      const activeRooms = await db.collection('rooms')
+        .where('status', 'in', ['waiting', 'playing', 'tally', 'reveal'])
+        .get();
+      if (activeRooms.size >= App.MAX_ROOMS) {
+        App.toast(`同時に存在できる部屋は${App.MAX_ROOMS}つまでです`);
+        App.hideLoading();
+        return;
+      }
+
       let code = App.generateRoomCode();
       // コード重複チェック
       let doc = await db.collection('rooms').doc(code).get();
