@@ -37,18 +37,31 @@
     </div>
   </div>
 
-  <!-- ===== 主催者: クイズ作成 ===== -->
-  <div id="view-host-setup" class="view">
+  <!-- ===== 主催者: メニュー ===== -->
+  <div id="view-host-menu" class="view">
+    <div class="container center">
+      <h1 class="logo">主催者モード</h1>
+      <p class="subtitle">クイズの作成・管理や部屋の作成ができます</p>
+      <div class="btn-group vertical">
+        <button class="btn btn-primary btn-lg" onclick="App.goTo('host-quiz-manage')">クイズ管理</button>
+        <button class="btn btn-secondary btn-lg" onclick="App.goTo('host-room-create')">部屋を作成</button>
+      </div>
+      <button class="btn btn-ghost" onclick="App.goTo('top')" style="margin-top:1rem">トップに戻る</button>
+    </div>
+  </div>
+
+  <!-- ===== 主催者: クイズ管理 ===== -->
+  <div id="view-host-quiz-manage" class="view">
     <div class="container">
       <div class="header-bar">
-        <button class="btn btn-ghost" onclick="App.goTo('top')">戻る</button>
-        <h2>クイズを作成</h2>
+        <button class="btn btn-ghost" onclick="App.goTo('host-menu')">戻る</button>
+        <h2>クイズ管理</h2>
         <div></div>
       </div>
 
-      <!-- クイズ追加フォーム -->
+      <!-- クイズ追加/編集フォーム -->
       <div class="card" id="quiz-form">
-        <h3>新しい問題を追加</h3>
+        <h3 id="quiz-form-title">新しい問題を追加</h3>
         <div class="form-group">
           <label>問題タイプ</label>
           <select id="quiz-type" onchange="Host.onTypeChange()">
@@ -83,22 +96,75 @@
           <input type="text" id="text-correct-answer" placeholder="正解を入力">
         </div>
         <div class="form-group">
+          <label>タグ（カンマ区切り）</label>
+          <input type="text" id="quiz-tags" placeholder="例: 歴史, 日本, 中級">
+        </div>
+        <div class="form-group">
           <label>制限時間（秒）</label>
           <input type="number" id="quiz-time-limit" value="30" min="5" max="300" step="5">
         </div>
-        <button class="btn btn-primary" onclick="Host.addQuiz()" id="btn-add-quiz">問題を追加</button>
+        <div class="form-group" style="display:flex;gap:0.5rem">
+          <button class="btn btn-primary" onclick="Host.saveQuiz()" id="btn-save-quiz">保存する</button>
+          <button class="btn btn-ghost" onclick="Host.clearForm()" id="btn-cancel-edit" style="display:none">キャンセル</button>
+        </div>
       </div>
 
-      <!-- 追加済みクイズ一覧 -->
+      <!-- フィルター -->
       <div class="card">
-        <h3>追加済みの問題 (<span id="quiz-count">0</span>)</h3>
-        <div id="quiz-list" class="quiz-list">
+        <h3>ストック済みの問題</h3>
+        <div class="filter-bar">
+          <input type="text" id="stock-search" placeholder="キーワード・タグで検索" oninput="Host.filterStockList()">
+          <select id="stock-type-filter" onchange="Host.filterStockList()">
+            <option value="">すべてのタイプ</option>
+            <option value="choice">選択問題</option>
+            <option value="text">記述問題</option>
+            <option value="sort">並び替え問題</option>
+          </select>
+        </div>
+        <div id="stock-tag-list" class="tag-list"></div>
+        <div id="stock-quiz-list" class="quiz-list">
           <p class="empty-msg">まだ問題がありません</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 主催者: 部屋作成 ===== -->
+  <div id="view-host-room-create" class="view">
+    <div class="container">
+      <div class="header-bar">
+        <button class="btn btn-ghost" onclick="App.goTo('host-menu')">戻る</button>
+        <h2>部屋を作成</h2>
+        <div></div>
+      </div>
+
+      <!-- クイズ選択フィルター -->
+      <div class="card">
+        <h3>出題するクイズを選択</h3>
+        <div class="filter-bar">
+          <select id="room-type-filter" onchange="Host.filterRoomQuizList()">
+            <option value="">すべてのタイプ</option>
+            <option value="choice">選択問題</option>
+            <option value="text">記述問題</option>
+            <option value="sort">並び替え問題</option>
+          </select>
+        </div>
+        <div id="room-tag-filter-list" class="tag-list"></div>
+        <div id="room-quiz-select-list" class="quiz-list">
+          <p class="empty-msg">クイズがありません</p>
+        </div>
+      </div>
+
+      <!-- 選択済みクイズ -->
+      <div class="card">
+        <h3>選択済みの問題 (<span id="selected-quiz-count">0</span>)</h3>
+        <div id="selected-quiz-list" class="quiz-list">
+          <p class="empty-msg">クイズを選択してください</p>
         </div>
       </div>
 
       <button class="btn btn-accent btn-lg btn-full" onclick="Host.createRoom()" id="btn-create-room" disabled>
-        部屋を作成する
+        この内容で部屋を作成する
       </button>
     </div>
   </div>

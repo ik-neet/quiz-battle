@@ -110,6 +110,45 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--p
 .quiz-list-actions { display: flex; gap: 0.25rem; }
 .empty-msg { color: var(--text-light); text-align: center; padding: 1rem; font-size: 0.9rem; }
 
+/* ===== Filter Bar ===== */
+.filter-bar { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+.filter-bar input { flex: 1; }
+.filter-bar select { min-width: 140px; }
+
+/* ===== Tag List ===== */
+.tag-list { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-bottom: 0.75rem; }
+.tag-chip {
+  display: inline-flex; align-items: center; padding: 0.25rem 0.75rem;
+  background: var(--bg); border: 2px solid var(--border); border-radius: 2rem;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  user-select: none;
+}
+.tag-chip:hover { border-color: var(--primary); }
+.tag-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.tag-chip .tag-count { margin-left: 0.25rem; opacity: 0.7; font-size: 0.75rem; }
+
+/* ===== Quiz Select List (Room Create) ===== */
+.quiz-select-item {
+  display: flex; align-items: center; padding: 0.75rem 1rem;
+  background: var(--bg); border-radius: var(--radius-sm); gap: 0.75rem;
+  cursor: pointer; transition: all 0.2s; border: 2px solid transparent;
+}
+.quiz-select-item:hover { border-color: var(--primary); }
+.quiz-select-item.selected { border-color: var(--primary); background: #EBF5FB; }
+.quiz-select-item .quiz-check {
+  width: 1.5rem; height: 1.5rem; border: 2px solid var(--border); border-radius: 4px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  font-size: 0.9rem; color: #fff; transition: all 0.2s;
+}
+.quiz-select-item.selected .quiz-check { background: var(--primary); border-color: var(--primary); }
+
+/* ===== Quiz Tags Display ===== */
+.quiz-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+.quiz-tag {
+  display: inline-block; padding: 0.125rem 0.5rem; border-radius: 2rem;
+  font-size: 0.7rem; font-weight: 600; background: var(--primary); color: #fff; opacity: 0.8;
+}
+
 /* ===== Room Code Display ===== */
 .room-code-display {
   display: flex; flex-direction: column; align-items: center;

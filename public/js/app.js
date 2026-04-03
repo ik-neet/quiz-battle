@@ -17,7 +17,7 @@ const App = {
   /** 主催者モードへの遷移（認証済みならスキップ） */
   enterHost() {
     if (sessionStorage.getItem('quiz-battle-host') === 'ok') {
-      App.goTo('host-setup');
+      App.goTo('host-menu');
     } else {
       App.goTo('host-gate');
       document.getElementById('gate-code').value = '';
@@ -44,7 +44,7 @@ const App = {
         return;
       }
       sessionStorage.setItem('quiz-battle-host', 'ok');
-      App.goTo('host-setup');
+      App.goTo('host-menu');
     } catch (e) {
       console.error(e);
       App.toast('認証に失敗しました');
@@ -54,7 +54,7 @@ const App = {
 
   goTo(viewName) {
     // 主催者画面は認証必須（gate自体とtopは除く）
-    const hostViews = ['host-setup', 'host-lobby', 'host-game', 'host-final'];
+    const hostViews = ['host-menu', 'host-quiz-manage', 'host-room-create', 'host-lobby', 'host-game', 'host-final'];
     if (hostViews.includes(viewName) && sessionStorage.getItem('quiz-battle-host') !== 'ok') {
       App.enterHost();
       return;
@@ -64,7 +64,8 @@ const App = {
     const el = document.getElementById('view-' + viewName);
     if (el) el.classList.add('active');
 
-    if (viewName === 'host-setup') Host.initSetup();
+    if (viewName === 'host-quiz-manage') Host.initQuizManage();
+    if (viewName === 'host-room-create') Host.initRoomCreate();
     window.scrollTo(0, 0);
   },
 
