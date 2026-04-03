@@ -12,13 +12,20 @@ const App = {
       console.error('Auth error:', e);
       App.toast('認証に失敗しました');
     }
+  },
 
-    // セッション内で認証済みならトップ画面へ
-    if (sessionStorage.getItem('quiz-battle-access') === 'ok') {
-      App.goTo('top');
+  /** 主催者モードへの遷移（認証済みならスキップ） */
+  enterHost() {
+    if (sessionStorage.getItem('quiz-battle-host') === 'ok') {
+      App.goTo('host-setup');
+    } else {
+      App.goTo('host-gate');
+      document.getElementById('gate-code').value = '';
+      document.getElementById('gate-code').focus();
     }
   },
 
+  /** 主催者アクセスコード検証 */
   async verifyGate() {
     const input = document.getElementById('gate-code').value.trim();
     if (!input) { App.toast('アクセスコードを入力してください'); return; }
@@ -36,8 +43,8 @@ const App = {
         App.hideLoading();
         return;
       }
-      sessionStorage.setItem('quiz-battle-access', 'ok');
-      App.goTo('top');
+      sessionStorage.setItem('quiz-battle-host', 'ok');
+      App.goTo('host-setup');
     } catch (e) {
       console.error(e);
       App.toast('認証に失敗しました');
@@ -46,9 +53,11 @@ const App = {
   },
 
   goTo(viewName) {
-    // アクセスコード未認証ならゲート画面に戻す（ゲート自体への遷移は許可）
-    if (viewName !== 'gate' && sessionStorage.getItem('quiz-battle-access') !== 'ok') {
-      viewName = 'gate';
+    // 主催者画面は認証必須（gate自体とtopは除く）
+    const hostViews = ['host-setup', 'host-lobby', 'host-game', 'host-final'];
+    if (hostViews.includes(viewName) && sessionStorage.getItem('quiz-battle-host') !== 'ok') {
+      App.enterHost();
+      return;
     }
 
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
