@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>クイズバトル</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ===== トップ画面 ===== -->
+  <div id="view-top" class="view active">
+    <div class="container center">
+      <h1 class="logo">クイズバトル</h1>
+      <p class="subtitle">みんなで楽しくクイズ大会!</p>
+      <div class="btn-group vertical">
+        <button class="btn btn-primary btn-lg" onclick="App.goTo('host-setup')">主催者モード</button>
+        <button class="btn btn-secondary btn-lg" onclick="App.goTo('join')">参加者モード</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 主催者: クイズ作成 ===== -->
+  <div id="view-host-setup" class="view">
+    <div class="container">
+      <div class="header-bar">
+        <button class="btn btn-ghost" onclick="App.goTo('top')">戻る</button>
+        <h2>クイズを作成</h2>
+        <div></div>
+      </div>
+
+      <!-- クイズ追加フォーム -->
+      <div class="card" id="quiz-form">
+        <h3>新しい問題を追加</h3>
+        <div class="form-group">
+          <label>問題タイプ</label>
+          <select id="quiz-type" onchange="Host.onTypeChange()">
+            <option value="choice">選択問題</option>
+            <option value="text">記述問題</option>
+            <option value="sort">並び替え問題</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>問題文</label>
+          <textarea id="quiz-question" rows="3" placeholder="問題文を入力"></textarea>
+        </div>
+        <div id="options-section">
+          <div class="form-group">
+            <label>選択肢の数</label>
+            <div class="range-group">
+              <input type="range" id="option-count" min="2" max="8" value="4" oninput="Host.updateOptionInputs()">
+              <span id="option-count-label">4</span>
+            </div>
+          </div>
+          <div id="options-list" class="options-edit-list"></div>
+          <div id="correct-answer-section" class="form-group">
+            <label>正解</label>
+            <select id="correct-answer"></select>
+          </div>
+          <div id="sort-hint" class="hint" style="display:none">
+            選択肢を正しい順番で入力してください。出題時にシャッフルされます。
+          </div>
+        </div>
+        <div id="text-answer-section" class="form-group" style="display:none">
+          <label>正解（完全一致で判定）</label>
+          <input type="text" id="text-correct-answer" placeholder="正解を入力">
+        </div>
+        <div class="form-group">
+          <label>制限時間（秒）</label>
+          <input type="number" id="quiz-time-limit" value="30" min="5" max="300" step="5">
+        </div>
+        <button class="btn btn-primary" onclick="Host.addQuiz()" id="btn-add-quiz">問題を追加</button>
+      </div>
+
+      <!-- 追加済みクイズ一覧 -->
+      <div class="card">
+        <h3>追加済みの問題 (<span id="quiz-count">0</span>)</h3>
+        <div id="quiz-list" class="quiz-list">
+          <p class="empty-msg">まだ問題がありません</p>
+        </div>
+      </div>
+
+      <button class="btn btn-accent btn-lg btn-full" onclick="Host.createRoom()" id="btn-create-room" disabled>
+        部屋を作成する
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== 主催者: ロビー ===== -->
+  <div id="view-host-lobby" class="view">
+    <div class="container center">
+      <h2>参加者を待っています...</h2>
+      <div class="room-code-display">
+        <span class="label">ルームコード</span>
+        <span class="code" id="host-room-code">----</span>
+      </div>
+      <div class="card">
+        <h3>参加者 (<span id="host-participant-count">0</span>)</h3>
+        <div id="host-participant-list" class="participant-list">
+          <p class="empty-msg">参加者の入室を待っています...</p>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-lg btn-full" onclick="Host.startGame()" id="btn-start-game" disabled>
+        ゲームを開始する
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== 主催者: ゲーム画面 ===== -->
+  <div id="view-host-game" class="view">
+    <div class="container">
+      <div class="game-header">
+        <span id="host-quiz-progress">Q1 / 5</span>
+        <span id="host-timer" class="timer">30</span>
+        <span id="host-answer-count">回答: 0/0</span>
+      </div>
+
+      <!-- 出題中 -->
+      <div id="host-state-question" class="game-state">
+        <div class="quiz-type-badge" id="host-quiz-type-badge">選択問題</div>
+        <h2 class="quiz-question" id="host-quiz-question"></h2>
+        <div id="host-quiz-options" class="options-display"></div>
+      </div>
+
+      <!-- 集計中 -->
+      <div id="host-state-tally" class="game-state" style="display:none">
+        <h2 class="section-title">回答集計</h2>
+        <div id="host-tally-chart" class="tally-chart"></div>
+        <button class="btn btn-primary btn-lg" onclick="Host.revealAnswer()">正解を発表</button>
+      </div>
+
+      <!-- 正解発表 -->
+      <div id="host-state-reveal" class="game-state" style="display:none">
+        <h2 class="section-title">正解</h2>
+        <div id="host-correct-answer" class="correct-answer-display"></div>
+        <div id="host-scoreboard" class="scoreboard"></div>
+        <button class="btn btn-primary btn-lg" onclick="Host.nextQuiz()" id="btn-next-quiz">次の問題へ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 主催者: 最終結果 ===== -->
+  <div id="view-host-final" class="view">
+    <div class="container center">
+      <h2 class="section-title">最終結果</h2>
+      <div id="host-final-podium" class="podium"></div>
+      <div id="host-final-ranking" class="ranking-list"></div>
+      <button class="btn btn-secondary btn-lg" onclick="App.goTo('top')">トップに戻る</button>
+    </div>
+  </div>
+
+  <!-- ===== 参加者: 入室 ===== -->
+  <div id="view-join" class="view">
+    <div class="container center">
+      <h2>クイズに参加する</h2>
+      <div class="card">
+        <div class="form-group">
+          <label>ルームコード</label>
+          <input type="text" id="join-room-code" placeholder="4桁のコードを入力" maxlength="4"
+            style="text-align:center;font-size:2rem;letter-spacing:0.5rem">
+        </div>
+        <div class="form-group">
+          <label>ニックネーム</label>
+          <input type="text" id="join-name" placeholder="名前を入力" maxlength="20">
+        </div>
+        <button class="btn btn-primary btn-lg btn-full" onclick="Participant.joinRoom()">参加する</button>
+      </div>
+      <button class="btn btn-ghost" onclick="App.goTo('top')">戻る</button>
+    </div>
+  </div>
+
+  <!-- ===== 参加者: ロビー ===== -->
+  <div id="view-participant-lobby" class="view">
+    <div class="container center">
+      <h2>まもなく開始します...</h2>
+      <p>ルーム: <strong id="participant-room-code-display"></strong></p>
+      <div class="card">
+        <h3>参加者一覧</h3>
+        <div id="participant-list-lobby" class="participant-list"></div>
+      </div>
+      <div class="waiting-animation">
+        <div class="dot-pulse"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 参加者: ゲーム画面 ===== -->
+  <div id="view-participant-game" class="view">
+    <div class="container">
+      <div class="game-header">
+        <span id="p-quiz-progress">Q1 / 5</span>
+        <span id="p-timer" class="timer">30</span>
+      </div>
+
+      <!-- 回答入力 -->
+      <div id="p-state-answering" class="game-state">
+        <div class="quiz-type-badge" id="p-quiz-type-badge">選択問題</div>
+        <h2 class="quiz-question" id="p-quiz-question"></h2>
+        <div id="p-quiz-options" class="options-grid"></div>
+        <div id="p-text-input-area" style="display:none">
+          <div class="form-group">
+            <input type="text" id="p-text-answer" placeholder="回答を入力">
+          </div>
+          <button class="btn btn-primary btn-lg btn-full" onclick="Participant.submitTextAnswer()">回答する</button>
+        </div>
+        <div id="p-sort-area" style="display:none">
+          <div id="p-sort-list" class="sort-list"></div>
+          <button class="btn btn-primary btn-lg btn-full" onclick="Participant.submitSortAnswer()">回答する</button>
+        </div>
+      </div>
+
+      <!-- 回答済み -->
+      <div id="p-state-answered" class="game-state" style="display:none">
+        <div class="answered-message">
+          <div class="check-icon">&#10003;</div>
+          <p>回答済み!</p>
+        </div>
+      </div>
+
+      <!-- 結果表示 -->
+      <div id="p-state-result" class="game-state" style="display:none">
+        <div id="p-result-display" class="result-display"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 参加者: 最終結果 ===== -->
+  <div id="view-participant-final" class="view">
+    <div class="container center">
+      <h2 class="section-title">最終結果</h2>
+      <div id="p-final-result" class="final-result-personal"></div>
+      <div id="p-final-ranking" class="ranking-list"></div>
+      <button class="btn btn-secondary btn-lg" onclick="App.goTo('top')">トップに戻る</button>
+    </div>
+  </div>
+
+  <!-- ===== ローディング / エラー ===== -->
+  <div id="loading-overlay" class="overlay" style="display:none">
+    <div class="spinner"></div>
+  </div>
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/host.js"></script>
+  <script src="js/participant.js"></script>
+</body>
+</html>
