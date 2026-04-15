@@ -110,10 +110,28 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--p
 .quiz-list-actions { display: flex; gap: 0.25rem; }
 .empty-msg { color: var(--text-light); text-align: center; padding: 1rem; font-size: 0.9rem; }
 
+/* ===== Admin Link ===== */
+.admin-link { margin-top: 2rem; font-size: 0.8rem; color: var(--text-light); opacity: 0.5; }
+.admin-link:hover { opacity: 1; }
+
+/* ===== Card Header Bar ===== */
+.card-header-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.card-header-bar h3 { margin-bottom: 0; }
+
 /* ===== Filter Bar ===== */
 .filter-bar { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
 .filter-bar input { flex: 1; }
-.filter-bar select { min-width: 140px; }
+
+/* ===== Filter Chips (Type Multi-Select) ===== */
+.filter-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-bottom: 0.75rem; }
+.type-chip {
+  display: inline-flex; align-items: center; padding: 0.3rem 0.75rem;
+  background: var(--bg); border: 2px solid var(--border); border-radius: 2rem;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  user-select: none;
+}
+.type-chip:hover { border-color: var(--secondary); }
+.type-chip.active { background: var(--secondary); color: #fff; border-color: var(--secondary); }
 
 /* ===== Tag List ===== */
 .tag-list { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-bottom: 0.75rem; }
@@ -148,6 +166,34 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--p
   display: inline-block; padding: 0.125rem 0.5rem; border-radius: 2rem;
   font-size: 0.7rem; font-weight: 600; background: var(--primary); color: #fff; opacity: 0.8;
 }
+
+/* ===== Stock Quiz Checkbox ===== */
+.stock-checkbox {
+  width: 1.25rem; height: 1.25rem; accent-color: var(--primary);
+  cursor: pointer; flex-shrink: 0;
+}
+
+/* ===== Bulk Actions ===== */
+.bulk-actions { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+
+/* ===== Order Controls ===== */
+.order-controls { display: flex; align-items: center; gap: 0.5rem; }
+.order-label { font-size: 0.8rem; font-weight: 600; color: var(--text-light); white-space: nowrap; }
+.order-controls select { padding: 0.3rem 0.5rem; font-size: 0.85rem; min-width: auto; width: auto; }
+
+/* ===== Selected Quiz Reorder ===== */
+.selected-quiz-item {
+  display: flex; align-items: center; padding: 0.75rem 1rem;
+  background: var(--bg); border-radius: var(--radius-sm); gap: 0.75rem;
+}
+.selected-quiz-item .reorder-actions { display: flex; flex-direction: column; gap: 0.125rem; }
+.selected-quiz-item .reorder-actions button {
+  background: var(--border); border: none; border-radius: 4px; width: 1.75rem; height: 1.5rem;
+  font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.selected-quiz-item .reorder-actions button:hover { background: var(--primary); color: #fff; }
+.selected-quiz-item .reorder-actions button:disabled { opacity: 0.3; cursor: not-allowed; }
+.selected-quiz-item .reorder-actions button:disabled:hover { background: var(--border); color: inherit; }
 
 /* ===== Room Code Display ===== */
 .room-code-display {
@@ -269,6 +315,9 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--p
 .answered-message { text-align: center; padding: 3rem 1rem; }
 .check-icon { font-size: 4rem; color: var(--success); margin-bottom: 0.5rem; }
 .answered-message p { font-size: 1.25rem; font-weight: 700; color: var(--text-light); }
+.answered-detail { margin-top: 1rem; font-size: 0.95rem; color: var(--text); }
+.answered-detail .detail-answer { font-weight: 600; margin-bottom: 0.25rem; }
+.answered-detail .detail-time { color: var(--text-light); font-size: 0.85rem; }
 
 /* ===== Result Display ===== */
 .result-display { text-align: center; padding: 2rem 1rem; }
@@ -279,7 +328,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--p
 /* ===== Podium ===== */
 .podium {
   display: flex; align-items: flex-end; justify-content: center;
-  gap: 0.5rem; margin-bottom: 2rem; height: 240px;
+  gap: 0.5rem; margin-bottom: 2rem;
 }
 .podium-item { display: flex; flex-direction: column; align-items: center; width: 100px; }
 .podium-name { font-weight: 700; font-size: 0.9rem; margin-bottom: 0.25rem; text-align: center; word-break: break-all; }
@@ -348,11 +397,128 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--p
 .header-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
 .header-bar h2 { font-size: 1.25rem; }
 
-/* ===== Responsive ===== */
+/* ===== Abort Modal ===== */
+.abort-modal-content {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 2.5rem 2rem;
+  text-align: center;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: var(--shadow);
+}
+.abort-modal-content .abort-icon { font-size: 3rem; margin-bottom: 1rem; }
+.abort-modal-content h2 { font-size: 1.4rem; margin-bottom: 0.5rem; color: var(--danger); }
+.abort-modal-content p { color: var(--text-light); margin-bottom: 1.5rem; }
+
+/* ===== Responsive: Small ===== */
 @media (max-width: 480px) {
   .logo { font-size: 2rem; }
   .quiz-question { font-size: 1.2rem; }
   .room-code-display .code { font-size: 2.5rem; letter-spacing: 0.5rem; }
   .options-display, .options-grid { grid-template-columns: 1fr; }
   .podium-item { width: 80px; }
+}
+
+/* ===== Responsive: Host Wide (PC / Tablet / Projector) ===== */
+@media (min-width: 768px) {
+  /* 主催者画面はコンテナを広く */
+  [id^="view-host-game"] .container,
+  [id^="view-host-lobby"] .container,
+  [id^="view-host-final"] .container {
+    max-width: 960px;
+  }
+  [id^="view-host-quiz-manage"] .container,
+  [id^="view-host-room-create"] .container {
+    max-width: 800px;
+  }
+
+  /* ゲーム画面: 問題・タイマーを大きく */
+  .game-header {
+    padding: 1rem 1.5rem;
+    font-size: 1.2rem;
+  }
+  .timer {
+    font-size: 3rem;
+    min-width: 4.5rem;
+  }
+  .quiz-question {
+    font-size: 2.2rem;
+    margin-bottom: 2rem;
+  }
+  .quiz-type-badge {
+    font-size: 1rem;
+    padding: 0.375rem 1rem;
+  }
+
+  /* 選択肢を大きく */
+  .options-display {
+    gap: 1rem;
+  }
+  .option-display-item {
+    font-size: 1.4rem;
+    min-height: 4.5rem;
+    padding: 1.25rem;
+  }
+
+  /* 集計チャート */
+  .tally-label { font-size: 1.1rem; min-width: 120px; }
+  .tally-bar-wrap { height: 2.5rem; }
+  .tally-bar span { font-size: 1rem; }
+  .tally-count { font-size: 1.1rem; }
+
+  /* 正解発表 */
+  .correct-answer-display {
+    font-size: 2.2rem;
+    padding: 2rem;
+  }
+
+  /* スコアボード */
+  .score-row {
+    padding: 0.75rem 1rem;
+    font-size: 1.1rem;
+  }
+
+  /* ロビー: 部屋コードを大きく */
+  .room-code-display .code {
+    font-size: 5rem;
+    letter-spacing: 1rem;
+  }
+  .room-code-display .label {
+    font-size: 1.1rem;
+  }
+
+  /* 最終結果: 表彰台を大きく */
+  .podium-item { width: 140px; }
+  .podium-name { font-size: 1.1rem; }
+  .podium-score { font-size: 1rem; }
+  .podium-bar { font-size: 2.5rem; }
+  .podium-bar.gold { height: 220px; }
+  .podium-bar.silver { height: 160px; }
+  .podium-bar.bronze { height: 110px; }
+
+  .rank-row { padding: 0.75rem 1rem; font-size: 1.1rem; }
+  .rank-num { font-size: 1.3rem; }
+
+  .section-title { font-size: 1.8rem; }
+}
+
+/* ===== Responsive: Host Extra Wide (Large Screen / Projector) ===== */
+@media (min-width: 1200px) {
+  [id^="view-host-game"] .container,
+  [id^="view-host-lobby"] .container,
+  [id^="view-host-final"] .container {
+    max-width: 1200px;
+  }
+
+  .timer { font-size: 4rem; }
+  .quiz-question { font-size: 2.8rem; }
+  .option-display-item { font-size: 1.6rem; min-height: 5rem; }
+  .correct-answer-display { font-size: 2.8rem; }
+  .room-code-display .code { font-size: 6rem; letter-spacing: 1.5rem; }
+
+  .podium-item { width: 180px; }
+  .podium-bar.gold { height: 280px; }
+  .podium-bar.silver { height: 200px; }
+  .podium-bar.bronze { height: 140px; }
 }

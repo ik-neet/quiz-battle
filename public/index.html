@@ -8,15 +8,24 @@
 </head>
 <body>
 
-  <!-- ===== トップ画面 ===== -->
+  <!-- ===== トップ画面（参加者入室） ===== -->
   <div id="view-top" class="view active">
     <div class="container center">
       <h1 class="logo">クイズバトル</h1>
       <p class="subtitle">みんなで楽しくクイズ大会!</p>
-      <div class="btn-group vertical">
-        <button class="btn btn-primary btn-lg" onclick="App.enterHost()">主催者モード</button>
-        <button class="btn btn-secondary btn-lg" onclick="App.goTo('join')">参加者モード</button>
+      <div class="card">
+        <div class="form-group">
+          <label>ルームコード</label>
+          <input type="text" id="join-room-code" placeholder="4桁のコードを入力" maxlength="4"
+            style="text-align:center;font-size:2rem;letter-spacing:0.5rem">
+        </div>
+        <div class="form-group">
+          <label>ニックネーム</label>
+          <input type="text" id="join-name" placeholder="名前を入力" maxlength="20">
+        </div>
+        <button class="btn btn-primary btn-lg btn-full" onclick="Participant.joinRoom()">参加する</button>
       </div>
+      <button class="btn btn-ghost btn-sm admin-link" onclick="App.enterHost()">管理者画面</button>
     </div>
   </div>
 
@@ -59,8 +68,32 @@
         <div></div>
       </div>
 
-      <!-- クイズ追加/編集フォーム -->
-      <div class="card" id="quiz-form">
+      <!-- クイズ一覧 -->
+      <div class="card" id="stock-list-section">
+        <div class="card-header-bar">
+          <h3>クイズ一覧 (<span id="stock-total-count">0</span>)</h3>
+          <div style="display:flex;gap:0.5rem">
+            <button class="btn btn-danger btn-sm" id="btn-bulk-delete" onclick="Host.bulkDeleteQuizzes()" style="display:none">選択を削除</button>
+            <button class="btn btn-primary btn-sm" onclick="Host.showQuizForm()">新規追加</button>
+          </div>
+        </div>
+        <div class="filter-bar">
+          <input type="text" id="stock-search" placeholder="キーワード・タグで検索" oninput="Host.filterStockList()">
+        </div>
+        <div class="filter-chips" id="stock-type-chips">
+          <span class="type-chip active" data-type="" onclick="Host.toggleStockType(this, '')">すべて</span>
+          <span class="type-chip" data-type="choice" onclick="Host.toggleStockType(this, 'choice')">選択問題</span>
+          <span class="type-chip" data-type="text" onclick="Host.toggleStockType(this, 'text')">記述問題</span>
+          <span class="type-chip" data-type="sort" onclick="Host.toggleStockType(this, 'sort')">並び替え問題</span>
+        </div>
+        <div id="stock-tag-list" class="tag-list"></div>
+        <div id="stock-quiz-list" class="quiz-list">
+          <p class="empty-msg">まだ問題がありません</p>
+        </div>
+      </div>
+
+      <!-- クイズ追加/編集フォーム（初期非表示） -->
+      <div class="card" id="quiz-form" style="display:none">
         <h3 id="quiz-form-title">新しい問題を追加</h3>
         <div class="form-group">
           <label>問題タイプ</label>
@@ -96,34 +129,21 @@
           <input type="text" id="text-correct-answer" placeholder="正解を入力">
         </div>
         <div class="form-group">
-          <label>タグ（カンマ区切り）</label>
-          <input type="text" id="quiz-tags" placeholder="例: 歴史, 日本, 中級">
+          <label>タグ</label>
+          <div id="quiz-existing-tags" class="tag-list"></div>
+          <input type="text" id="quiz-tags" placeholder="新しいタグを入力（カンマ区切り）">
         </div>
         <div class="form-group">
           <label>制限時間（秒）</label>
           <input type="number" id="quiz-time-limit" value="30" min="5" max="300" step="5">
         </div>
+        <div class="form-group">
+          <label>獲得ポイント</label>
+          <input type="number" id="quiz-points" value="1" min="1" max="100" step="1">
+        </div>
         <div class="form-group" style="display:flex;gap:0.5rem">
           <button class="btn btn-primary" onclick="Host.saveQuiz()" id="btn-save-quiz">保存する</button>
-          <button class="btn btn-ghost" onclick="Host.clearForm()" id="btn-cancel-edit" style="display:none">キャンセル</button>
-        </div>
-      </div>
-
-      <!-- フィルター -->
-      <div class="card">
-        <h3>ストック済みの問題</h3>
-        <div class="filter-bar">
-          <input type="text" id="stock-search" placeholder="キーワード・タグで検索" oninput="Host.filterStockList()">
-          <select id="stock-type-filter" onchange="Host.filterStockList()">
-            <option value="">すべてのタイプ</option>
-            <option value="choice">選択問題</option>
-            <option value="text">記述問題</option>
-            <option value="sort">並び替え問題</option>
-          </select>
-        </div>
-        <div id="stock-tag-list" class="tag-list"></div>
-        <div id="stock-quiz-list" class="quiz-list">
-          <p class="empty-msg">まだ問題がありません</p>
+          <button class="btn btn-ghost" onclick="Host.hideQuizForm()">キャンセル</button>
         </div>
       </div>
     </div>
@@ -141,15 +161,17 @@
       <!-- クイズ選択フィルター -->
       <div class="card">
         <h3>出題するクイズを選択</h3>
-        <div class="filter-bar">
-          <select id="room-type-filter" onchange="Host.filterRoomQuizList()">
-            <option value="">すべてのタイプ</option>
-            <option value="choice">選択問題</option>
-            <option value="text">記述問題</option>
-            <option value="sort">並び替え問題</option>
-          </select>
+        <div class="filter-chips" id="room-type-chips">
+          <span class="type-chip active" data-type="" onclick="Host.toggleRoomType(this, '')">すべて</span>
+          <span class="type-chip" data-type="choice" onclick="Host.toggleRoomType(this, 'choice')">選択問題</span>
+          <span class="type-chip" data-type="text" onclick="Host.toggleRoomType(this, 'text')">記述問題</span>
+          <span class="type-chip" data-type="sort" onclick="Host.toggleRoomType(this, 'sort')">並び替え問題</span>
         </div>
         <div id="room-tag-filter-list" class="tag-list"></div>
+        <div class="bulk-actions">
+          <button class="btn btn-secondary btn-sm" onclick="Host.selectAllFiltered()">表示中をすべて選択</button>
+          <button class="btn btn-ghost btn-sm" onclick="Host.deselectAllFiltered()">表示中をすべて解除</button>
+        </div>
         <div id="room-quiz-select-list" class="quiz-list">
           <p class="empty-msg">クイズがありません</p>
         </div>
@@ -157,7 +179,16 @@
 
       <!-- 選択済みクイズ -->
       <div class="card">
-        <h3>選択済みの問題 (<span id="selected-quiz-count">0</span>)</h3>
+        <div class="card-header-bar">
+          <h3>選択済みの問題 (<span id="selected-quiz-count">0</span>)</h3>
+          <div class="order-controls">
+            <label class="order-label">出題順:</label>
+            <select id="quiz-order-mode" onchange="Host.onOrderModeChange()">
+              <option value="manual">手動</option>
+              <option value="random">ランダム</option>
+            </select>
+          </div>
+        </div>
         <div id="selected-quiz-list" class="quiz-list">
           <p class="empty-msg">クイズを選択してください</p>
         </div>
@@ -206,6 +237,7 @@
         <div class="quiz-type-badge" id="host-quiz-type-badge">選択問題</div>
         <h2 class="quiz-question" id="host-quiz-question"></h2>
         <div id="host-quiz-options" class="options-display"></div>
+        <button class="btn btn-accent btn-lg" onclick="Host.closeAnswering()" style="margin-top:1.5rem">回答を締め切る</button>
       </div>
 
       <!-- 集計中 -->
@@ -222,6 +254,8 @@
         <div id="host-scoreboard" class="scoreboard"></div>
         <button class="btn btn-primary btn-lg" onclick="Host.nextQuiz()" id="btn-next-quiz">次の問題へ</button>
       </div>
+
+      <button class="btn btn-danger btn-full" onclick="Host.forceEndQuiz()" style="margin-top:1.5rem">クイズの終了</button>
     </div>
   </div>
 
@@ -235,25 +269,7 @@
     </div>
   </div>
 
-  <!-- ===== 参加者: 入室 ===== -->
-  <div id="view-join" class="view">
-    <div class="container center">
-      <h2>クイズに参加する</h2>
-      <div class="card">
-        <div class="form-group">
-          <label>ルームコード</label>
-          <input type="text" id="join-room-code" placeholder="4桁のコードを入力" maxlength="4"
-            style="text-align:center;font-size:2rem;letter-spacing:0.5rem">
-        </div>
-        <div class="form-group">
-          <label>ニックネーム</label>
-          <input type="text" id="join-name" placeholder="名前を入力" maxlength="20">
-        </div>
-        <button class="btn btn-primary btn-lg btn-full" onclick="Participant.joinRoom()">参加する</button>
-      </div>
-      <button class="btn btn-ghost" onclick="App.goTo('top')">戻る</button>
-    </div>
-  </div>
+  <!-- view-join は view-top に統合済み -->
 
   <!-- ===== 参加者: ロビー ===== -->
   <div id="view-participant-lobby" class="view">
@@ -300,6 +316,7 @@
         <div class="answered-message">
           <div class="check-icon">&#10003;</div>
           <p>回答済み!</p>
+          <div id="p-answered-detail" class="answered-detail"></div>
         </div>
       </div>
 
@@ -325,6 +342,16 @@
     <div class="spinner"></div>
   </div>
   <div id="toast" class="toast" style="display:none"></div>
+
+  <!-- 中断モーダル -->
+  <div id="abort-modal" class="overlay" style="display:none">
+    <div class="abort-modal-content">
+      <div class="abort-icon">⚠️</div>
+      <h2>クイズが中断されました</h2>
+      <p>主催者がクイズを終了しました</p>
+      <button class="btn btn-primary btn-lg" onclick="document.getElementById('abort-modal').style.display='none'; App.goTo('top');">トップに戻る</button>
+    </div>
+  </div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>

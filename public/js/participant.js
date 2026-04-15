@@ -77,7 +77,10 @@ const Participant = {
   listenToRoom() {
     if (this.unsubRoom) this.unsubRoom();
     this.unsubRoom = this.roomRef.onSnapshot(snap => {
-      if (!snap.exists) return;
+      if (!snap.exists) {
+        this.onRoomDeleted();
+        return;
+      }
       const data = snap.data();
       this.onRoomUpdate(data);
     });
@@ -107,6 +110,7 @@ const Participant = {
 
     this.hasAnswered = false;
     this.quizStartTime = Date.now();
+    this._currentQuizOptions = quiz.options || null;
 
     App.goTo('participant-game');
 
@@ -207,7 +211,6 @@ const Participant = {
 
   async submitAnswer(answer) {
     this.hasAnswered = true;
-    clearInterval(this.timerInterval);
     const elapsed = Date.now() - this.quizStartTime;
 
     try {
@@ -223,8 +226,25 @@ const Participant = {
       return;
     }
 
+    // 回答内容と回答時間を表示
+    let answerDisplay;
+    if (Array.isArray(answer)) {
+      answerDisplay = answer.join(' → ');
+    } else if (typeof answer === 'number' && this._currentQuizOptions) {
+      answerDisplay = this._currentQuizOptions[answer] || String(answer);
+    } else {
+      answerDisplay = String(answer);
+    }
+
+    const detailEl = document.getElementById('p-answered-detail');
+    detailEl.innerHTML = `
+      <div class="detail-answer">あなたの回答: ${App.escapeHtml(answerDisplay)}</div>
+      <div class="detail-time">回答時間: ${App.formatTime(elapsed)}</div>
+    `;
+
     document.getElementById('p-state-answering').style.display = 'none';
     document.getElementById('p-state-answered').style.display = 'block';
+    // タイマーは止めない（残り時間を表示し続ける）
   },
 
   /* ---------- 集計・発表 ---------- */
@@ -264,21 +284,23 @@ const Participant = {
   },
 
   async onFinished(data) {
-    // 最終結果取得
-    const snap = await this.roomRef.collection('participants')
-      .orderBy('score', 'desc')
-      .orderBy('totalTimeMs', 'asc')
-      .get();
+    clearInterval(this.timerInterval);
+
+    // 最終結果取得（クライアント側ソート）
+    const snap = await this.roomRef.collection('participants').get();
 
     const ranking = [];
+    snap.forEach(doc => {
+      ranking.push({ id: doc.id, ...doc.data() });
+    });
+    ranking.sort((a, b) => (b.score || 0) - (a.score || 0) || (a.totalTimeMs || 0) - (b.totalTimeMs || 0));
+
     let myRank = 0;
     let myData = null;
-    snap.forEach((doc, i) => {
-      const d = doc.data();
-      ranking.push({ id: doc.id, ...d });
-      if (doc.id === App.currentUser.uid) {
-        myRank = ranking.length;
-        myData = d;
+    ranking.forEach((p, i) => {
+      if (p.id === App.currentUser.uid) {
+        myRank = i + 1;
+        myData = p;
       }
     });
 
@@ -304,6 +326,12 @@ const Participant = {
 
     App.goTo('participant-final');
     this.cleanup();
+  },
+
+  onRoomDeleted() {
+    clearInterval(this.timerInterval);
+    this.cleanup();
+    document.getElementById('abort-modal').style.display = 'flex';
   },
 
   cleanup() {

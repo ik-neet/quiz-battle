@@ -3,11 +3,16 @@
 const Host = {
   /* --- 状態 --- */
   stockQuizzes: [],        // Firestoreから読み込んだクイズ一覧
+  checkedQuizIds: [],      // チェック済みクイズID（一括削除用）
   editingQuizId: null,     // 編集中のクイズID (null = 新規)
   selectedQuizIds: [],     // 部屋作成で選択されたクイズID
   selectedQuizzes: [],     // 部屋作成で選択されたクイズデータ
   activeTagFilter: null,   // タグフィルタ（クイズ管理用）
+  stockTypeFilters: [],    // タイプフィルタ（クイズ管理用、複数選択）
   roomTagFilter: null,     // タグフィルタ（部屋作成用）
+  roomTypeFilters: [],     // タイプフィルタ（部屋作成用、複数選択）
+  quizOrderMode: 'manual', // 出題順モード: manual / random
+  formSelectedTags: [],    // フォーム内で選択中のタグ
 
   quizzes: [],             // ゲーム用: 出題クイズ配列
   roomCode: null,
@@ -26,8 +31,27 @@ const Host = {
   async initQuizManage() {
     this.editingQuizId = null;
     this.activeTagFilter = null;
-    this.clearForm();
+    this.stockTypeFilters = [];
+    this.checkedQuizIds = [];
+    this.formSelectedTags = [];
+    this.resetTypeChips('stock-type-chips');
+    this.hideQuizForm();
     await this.loadStockQuizzes();
+  },
+
+  /* --- フォーム表示/非表示 --- */
+  showQuizForm(editId) {
+    this.clearForm();
+    if (editId) {
+      this.editStockQuiz(editId);
+    }
+    document.getElementById('quiz-form').style.display = 'block';
+    document.getElementById('quiz-form').scrollIntoView({ behavior: 'smooth' });
+  },
+
+  hideQuizForm() {
+    document.getElementById('quiz-form').style.display = 'none';
+    this.clearForm();
   },
 
   async loadStockQuizzes() {
@@ -35,10 +59,14 @@ const Host = {
     try {
       const snap = await db.collection('quizzes')
         .where('ownerId', '==', App.currentUser.uid)
-        .orderBy('createdAt', 'desc')
         .get();
       this.stockQuizzes = [];
       snap.forEach(doc => this.stockQuizzes.push({ id: doc.id, ...doc.data() }));
+      this.stockQuizzes.sort((a, b) => {
+        const ta = a.createdAt ? a.createdAt.toMillis() : 0;
+        const tb = b.createdAt ? b.createdAt.toMillis() : 0;
+        return tb - ta;
+      });
     } catch (e) {
       console.error(e);
       this.stockQuizzes = [];
@@ -110,14 +138,44 @@ const Host = {
     document.getElementById('option-count').value = 4;
     document.getElementById('text-correct-answer').value = '';
     document.getElementById('quiz-time-limit').value = 30;
+    document.getElementById('quiz-points').value = 1;
     document.getElementById('correct-answer').value = 0;
     document.getElementById('quiz-tags').value = '';
     document.getElementById('quiz-form-title').textContent = '新しい問題を追加';
     document.getElementById('btn-save-quiz').textContent = '保存する';
-    document.getElementById('btn-cancel-edit').style.display = 'none';
     this.editingQuizId = null;
+    this.formSelectedTags = [];
+    this.renderFormExistingTags();
     this.onTypeChange();
     this.updateOptionInputs();
+  },
+
+  /* --- 既存タグ選択UI --- */
+  getAllTags() {
+    const tags = new Set();
+    this.stockQuizzes.forEach(q => (q.tags || []).forEach(t => tags.add(t)));
+    return [...tags].sort();
+  },
+
+  renderFormExistingTags() {
+    const allTags = this.getAllTags();
+    const el = document.getElementById('quiz-existing-tags');
+    if (allTags.length === 0) { el.innerHTML = ''; return; }
+
+    el.innerHTML = allTags.map(tag => {
+      const active = this.formSelectedTags.includes(tag);
+      return `<span class="tag-chip ${active ? 'active' : ''}" onclick="Host.toggleFormTag('${App.escapeHtml(tag)}')">${App.escapeHtml(tag)}</span>`;
+    }).join('');
+  },
+
+  toggleFormTag(tag) {
+    const idx = this.formSelectedTags.indexOf(tag);
+    if (idx >= 0) {
+      this.formSelectedTags.splice(idx, 1);
+    } else {
+      this.formSelectedTags.push(tag);
+    }
+    this.renderFormExistingTags();
   },
 
   /* --- クイズ保存 (新規 or 更新) --- */
@@ -125,8 +183,10 @@ const Host = {
     const type = document.getElementById('quiz-type').value;
     const question = document.getElementById('quiz-question').value.trim();
     const timeLimit = parseInt(document.getElementById('quiz-time-limit').value) || 30;
+    const points = parseInt(document.getElementById('quiz-points').value) || 1;
     const tagsRaw = document.getElementById('quiz-tags').value.trim();
-    const tags = tagsRaw ? tagsRaw.split(/[,、]/).map(t => t.trim()).filter(Boolean) : [];
+    const newTags = tagsRaw ? tagsRaw.split(/[,、]/).map(t => t.trim()).filter(Boolean) : [];
+    const tags = [...new Set([...this.formSelectedTags, ...newTags])];
 
     if (!question) { App.toast('問題文を入力してください'); return; }
 
@@ -150,7 +210,7 @@ const Host = {
 
     const data = {
       ownerId: App.currentUser.uid,
-      type, question, options, correctAnswer, timeLimit, tags,
+      type, question, options, correctAnswer, timeLimit, points, tags,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
 
@@ -164,7 +224,7 @@ const Host = {
         await db.collection('quizzes').add(data);
         App.toast('問題を保存しました');
       }
-      this.clearForm();
+      this.hideQuizForm();
       await this.loadStockQuizzes();
     } catch (e) {
       console.error(e);
@@ -182,10 +242,15 @@ const Host = {
     document.getElementById('quiz-type').value = q.type;
     document.getElementById('quiz-question').value = q.question;
     document.getElementById('quiz-time-limit').value = q.timeLimit;
-    document.getElementById('quiz-tags').value = (q.tags || []).join(', ');
+    document.getElementById('quiz-points').value = q.points || 1;
+    document.getElementById('quiz-tags').value = '';
     document.getElementById('quiz-form-title').textContent = '問題を編集';
     document.getElementById('btn-save-quiz').textContent = '更新する';
-    document.getElementById('btn-cancel-edit').style.display = 'inline-flex';
+
+    // 既存タグを選択状態に復元
+    this.formSelectedTags = [...(q.tags || [])];
+    this.renderFormExistingTags();
+
     this.onTypeChange();
 
     if (q.type === 'choice' || q.type === 'sort') {
@@ -200,6 +265,7 @@ const Host = {
       document.getElementById('text-correct-answer').value = q.correctAnswer;
     }
 
+    document.getElementById('quiz-form').style.display = 'block';
     document.getElementById('quiz-form').scrollIntoView({ behavior: 'smooth' });
   },
 
@@ -209,7 +275,7 @@ const Host = {
     App.showLoading();
     try {
       await db.collection('quizzes').doc(quizId).delete();
-      if (this.editingQuizId === quizId) this.clearForm();
+      if (this.editingQuizId === quizId) this.hideQuizForm();
       await this.loadStockQuizzes();
       App.toast('問題を削除しました');
     } catch (e) {
@@ -241,6 +307,54 @@ const Host = {
     this.renderStockQuizList();
   },
 
+  /* --- タイプチップ共通 --- */
+  resetTypeChips(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.querySelectorAll('.type-chip').forEach(c => {
+      c.classList.toggle('active', c.dataset.type === '');
+    });
+  },
+
+  toggleStockType(chip, type) {
+    this._toggleTypeChip('stock-type-chips', 'stockTypeFilters', chip, type);
+    this.renderStockQuizList();
+  },
+
+  toggleRoomType(chip, type) {
+    this._toggleTypeChip('room-type-chips', 'roomTypeFilters', chip, type);
+    this.renderRoomQuizSelectList();
+  },
+
+  _toggleTypeChip(containerId, filterKey, chip, type) {
+    const container = document.getElementById(containerId);
+    if (!type) {
+      // 「すべて」をクリック → フィルタクリア
+      this[filterKey] = [];
+      container.querySelectorAll('.type-chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.type === '');
+      });
+      return;
+    }
+
+    // 「すべて」を外す
+    container.querySelector('.type-chip[data-type=""]').classList.remove('active');
+
+    const idx = this[filterKey].indexOf(type);
+    if (idx >= 0) {
+      this[filterKey].splice(idx, 1);
+      chip.classList.remove('active');
+    } else {
+      this[filterKey].push(type);
+      chip.classList.add('active');
+    }
+
+    // 何も選択されていなければ「すべて」をアクティブに
+    if (this[filterKey].length === 0) {
+      container.querySelector('.type-chip[data-type=""]').classList.add('active');
+    }
+  },
+
   /* --- ストック一覧表示 --- */
   filterStockList() {
     this.renderStockQuizList();
@@ -248,10 +362,13 @@ const Host = {
 
   renderStockQuizList() {
     const search = (document.getElementById('stock-search')?.value || '').trim().toLowerCase();
-    const typeFilter = document.getElementById('stock-type-filter')?.value || '';
+
+    // 総数表示
+    const totalEl = document.getElementById('stock-total-count');
+    if (totalEl) totalEl.textContent = this.stockQuizzes.length;
 
     let filtered = this.stockQuizzes;
-    if (typeFilter) filtered = filtered.filter(q => q.type === typeFilter);
+    if (this.stockTypeFilters.length > 0) filtered = filtered.filter(q => this.stockTypeFilters.includes(q.type));
     if (this.activeTagFilter) filtered = filtered.filter(q => (q.tags || []).includes(this.activeTagFilter));
     if (search) {
       filtered = filtered.filter(q =>
@@ -268,18 +385,63 @@ const Host = {
 
     list.innerHTML = filtered.map(q => `
       <div class="quiz-list-item">
-        <span class="quiz-num">${App.quizTypeLabel(q.type).charAt(0)}</span>
+        <input type="checkbox" class="stock-checkbox" ${this.checkedQuizIds.includes(q.id) ? 'checked' : ''}
+          onchange="Host.toggleCheckQuiz('${q.id}', this.checked)">
         <div class="quiz-info">
           <div class="quiz-text">${App.escapeHtml(q.question)}</div>
-          <div class="quiz-meta">${App.quizTypeLabel(q.type)} / ${q.timeLimit}秒</div>
+          <div class="quiz-meta">${App.quizTypeLabel(q.type)} / ${q.timeLimit}秒 / ${q.points || 1}pt</div>
           ${(q.tags || []).length ? `<div class="quiz-tags">${q.tags.map(t => `<span class="quiz-tag">${App.escapeHtml(t)}</span>`).join('')}</div>` : ''}
         </div>
         <div class="quiz-list-actions">
-          <button class="btn btn-ghost btn-sm" onclick="Host.editStockQuiz('${q.id}')">編集</button>
-          <button class="btn btn-ghost btn-sm" onclick="Host.deleteStockQuiz('${q.id}')">削除</button>
+          <button class="btn btn-ghost btn-sm" onclick="Host.showQuizForm('${q.id}')">編集</button>
         </div>
       </div>
     `).join('');
+
+    this.updateBulkDeleteBtn();
+  },
+
+  toggleCheckQuiz(quizId, checked) {
+    if (checked) {
+      if (!this.checkedQuizIds.includes(quizId)) this.checkedQuizIds.push(quizId);
+    } else {
+      this.checkedQuizIds = this.checkedQuizIds.filter(id => id !== quizId);
+    }
+    this.updateBulkDeleteBtn();
+  },
+
+  updateBulkDeleteBtn() {
+    const btn = document.getElementById('btn-bulk-delete');
+    if (!btn) return;
+    if (this.checkedQuizIds.length > 0) {
+      btn.style.display = 'inline-flex';
+      btn.textContent = `選択を削除 (${this.checkedQuizIds.length})`;
+    } else {
+      btn.style.display = 'none';
+    }
+  },
+
+  async bulkDeleteQuizzes() {
+    const count = this.checkedQuizIds.length;
+    if (count === 0) return;
+    if (!confirm(`${count}件の問題を削除しますか？`)) return;
+
+    App.showLoading();
+    try {
+      const batch = db.batch();
+      this.checkedQuizIds.forEach(id => {
+        batch.delete(db.collection('quizzes').doc(id));
+      });
+      await batch.commit();
+      if (this.checkedQuizIds.includes(this.editingQuizId)) this.hideQuizForm();
+      this.checkedQuizIds = [];
+      await this.loadStockQuizzes();
+      App.toast(`${count}件の問題を削除しました`);
+    } catch (e) {
+      console.error(e);
+      App.toast('削除に失敗しました');
+    }
+    App.hideLoading();
   },
 
   /* ========== 部屋作成モード ========== */
@@ -288,6 +450,11 @@ const Host = {
     this.selectedQuizIds = [];
     this.selectedQuizzes = [];
     this.roomTagFilter = null;
+    this.roomTypeFilters = [];
+    this.quizOrderMode = 'manual';
+    const orderSel = document.getElementById('quiz-order-mode');
+    if (orderSel) orderSel.value = 'manual';
+    this.resetTypeChips('room-type-chips');
     await this.loadStockQuizzes();
     this.renderRoomTagFilterList();
     this.renderRoomQuizSelectList();
@@ -322,10 +489,8 @@ const Host = {
 
   /* --- 選択可能クイズ一覧 --- */
   renderRoomQuizSelectList() {
-    const typeFilter = document.getElementById('room-type-filter')?.value || '';
-
     let filtered = this.stockQuizzes;
-    if (typeFilter) filtered = filtered.filter(q => q.type === typeFilter);
+    if (this.roomTypeFilters.length > 0) filtered = filtered.filter(q => this.roomTypeFilters.includes(q.type));
     if (this.roomTagFilter) filtered = filtered.filter(q => (q.tags || []).includes(this.roomTagFilter));
 
     const list = document.getElementById('room-quiz-select-list');
@@ -341,7 +506,7 @@ const Host = {
           <div class="quiz-check">${selected ? '&#10003;' : ''}</div>
           <div class="quiz-info">
             <div class="quiz-text">${App.escapeHtml(q.question)}</div>
-            <div class="quiz-meta">${App.quizTypeLabel(q.type)} / ${q.timeLimit}秒</div>
+            <div class="quiz-meta">${App.quizTypeLabel(q.type)} / ${q.timeLimit}秒 / ${q.points || 1}pt</div>
             ${(q.tags || []).length ? `<div class="quiz-tags">${q.tags.map(t => `<span class="quiz-tag">${App.escapeHtml(t)}</span>`).join('')}</div>` : ''}
           </div>
         </div>
@@ -367,6 +532,7 @@ const Host = {
     const countEl = document.getElementById('selected-quiz-count');
     const list = document.getElementById('selected-quiz-list');
     const btn = document.getElementById('btn-create-room');
+    const isManual = this.quizOrderMode === 'manual';
 
     countEl.textContent = this.selectedQuizzes.length;
     btn.disabled = this.selectedQuizzes.length === 0;
@@ -376,12 +542,19 @@ const Host = {
       return;
     }
 
+    const label = isManual ? (i) => `Q${i + 1}` : () => '?';
+
     list.innerHTML = this.selectedQuizzes.map((q, i) => `
-      <div class="quiz-list-item">
-        <span class="quiz-num">Q${i + 1}</span>
+      <div class="selected-quiz-item">
+        ${isManual ? `
+        <div class="reorder-actions">
+          <button onclick="Host.moveSelectedQuiz(${i}, -1)" ${i === 0 ? 'disabled' : ''}>&#9650;</button>
+          <button onclick="Host.moveSelectedQuiz(${i}, 1)" ${i === this.selectedQuizzes.length - 1 ? 'disabled' : ''}>&#9660;</button>
+        </div>` : ''}
+        <span class="quiz-num">${label(i)}</span>
         <div class="quiz-info">
           <div class="quiz-text">${App.escapeHtml(q.question)}</div>
-          <div class="quiz-meta">${App.quizTypeLabel(q.type)} / ${q.timeLimit}秒</div>
+          <div class="quiz-meta">${App.quizTypeLabel(q.type)} / ${q.timeLimit}秒 / ${q.points || 1}pt</div>
         </div>
         <div class="quiz-list-actions">
           <button class="btn btn-ghost btn-sm" onclick="Host.removeSelectedQuiz('${q.id}')">取消</button>
@@ -394,14 +567,61 @@ const Host = {
     this.toggleQuizSelection(quizId);
   },
 
+  /* --- 一括選択・解除 --- */
+  _getFilteredRoomQuizzes() {
+    let filtered = this.stockQuizzes;
+    if (this.roomTypeFilters.length > 0) filtered = filtered.filter(q => this.roomTypeFilters.includes(q.type));
+    if (this.roomTagFilter) filtered = filtered.filter(q => (q.tags || []).includes(this.roomTagFilter));
+    return filtered;
+  },
+
+  selectAllFiltered() {
+    const filtered = this._getFilteredRoomQuizzes();
+    filtered.forEach(q => {
+      if (!this.selectedQuizIds.includes(q.id)) {
+        this.selectedQuizIds.push(q.id);
+        this.selectedQuizzes.push(q);
+      }
+    });
+    this.renderRoomQuizSelectList();
+    this.renderSelectedQuizList();
+  },
+
+  deselectAllFiltered() {
+    const filtered = this._getFilteredRoomQuizzes();
+    const idsToRemove = new Set(filtered.map(q => q.id));
+    this.selectedQuizIds = this.selectedQuizIds.filter(id => !idsToRemove.has(id));
+    this.selectedQuizzes = this.selectedQuizzes.filter(q => !idsToRemove.has(q.id));
+    this.renderRoomQuizSelectList();
+    this.renderSelectedQuizList();
+  },
+
+  /* --- 出題順 --- */
+  onOrderModeChange() {
+    this.quizOrderMode = document.getElementById('quiz-order-mode').value;
+    this.renderSelectedQuizList();
+  },
+
+  moveSelectedQuiz(idx, dir) {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= this.selectedQuizzes.length) return;
+    [this.selectedQuizzes[idx], this.selectedQuizzes[newIdx]] = [this.selectedQuizzes[newIdx], this.selectedQuizzes[idx]];
+    [this.selectedQuizIds[idx], this.selectedQuizIds[newIdx]] = [this.selectedQuizIds[newIdx], this.selectedQuizIds[idx]];
+    this.renderSelectedQuizList();
+  },
+
   /* ========== 部屋作成 ========== */
 
   async createRoom() {
     if (this.selectedQuizzes.length === 0) return;
     if (!App.currentUser) { App.toast('認証中です...しばらくお待ちください'); return; }
 
-    // 選択されたクイズをゲーム用配列にセット
-    this.quizzes = this.selectedQuizzes.map(q => ({
+    // 選択されたクイズをゲーム用配列にセット（ランダムならシャッフル）
+    let ordered = [...this.selectedQuizzes];
+    if (this.quizOrderMode === 'random') {
+      ordered = App.shuffleArray(ordered);
+    }
+    this.quizzes = ordered.map(q => ({
       type: q.type,
       question: q.question,
       options: q.options || [],
@@ -581,13 +801,6 @@ const Host = {
 
       if (this.timerRemaining <= 5) timerEl.classList.add('urgent');
 
-      const total = Object.keys(this.participants).length;
-      const answered = Object.values(this.participants).filter(p => p.hasAnswered).length;
-      if (total > 0 && answered >= total) {
-        this.timeUp();
-        return;
-      }
-
       if (this.timerRemaining <= 0) {
         this.timeUp();
       }
@@ -597,6 +810,13 @@ const Host = {
   async timeUp() {
     clearInterval(this.timerInterval);
     document.getElementById('host-timer').textContent = '0';
+    await this.roomRef.update({ status: 'tally' });
+    this.showTally();
+  },
+
+  async closeAnswering() {
+    clearInterval(this.timerInterval);
+    document.getElementById('host-timer').textContent = '締切';
     await this.roomRef.update({ status: 'tally' });
     this.showTally();
   },
@@ -661,9 +881,13 @@ const Host = {
       answerDisplay = quiz.correctAnswer;
     }
 
+    const correctMap = {};
     const batch = db.batch();
     Object.entries(this.participants).forEach(([pid, p]) => {
-      if (!p.hasAnswered) return;
+      if (!p.hasAnswered) {
+        correctMap[pid] = null;
+        return;
+      }
       let correct = false;
 
       if (quiz.type === 'choice') {
@@ -676,16 +900,15 @@ const Host = {
           p.currentAnswer.every((v, i) => v === quiz.correctAnswer[i]);
       }
 
-      const newScore = (p.score || 0) + (correct ? 1 : 0);
+      correctMap[pid] = correct;
+      const quizPoints = quiz.points || 1;
+      const newScore = (p.score || 0) + (correct ? quizPoints : 0);
       const newTime = (p.totalTimeMs || 0) + (p.currentAnswerTimeMs || 0);
 
       batch.update(this.participantsRef.doc(pid), {
         score: newScore,
         totalTimeMs: newTime
       });
-      this.participants[pid].score = newScore;
-      this.participants[pid].totalTimeMs = newTime;
-      this.participants[pid].isCorrect = correct;
     });
     await batch.commit();
 
@@ -697,13 +920,13 @@ const Host = {
     document.getElementById('host-correct-answer').textContent = answerDisplay;
 
     const ranking = Object.entries(this.participants)
-      .map(([id, p]) => ({ id, name: p.name, score: p.score || 0, time: p.totalTimeMs || 0, isCorrect: p.isCorrect }))
+      .map(([id, p]) => ({ id, name: p.name, score: p.score || 0, time: p.totalTimeMs || 0, isCorrect: correctMap[id] }))
       .sort((a, b) => b.score - a.score || a.time - b.time);
 
     document.getElementById('host-scoreboard').innerHTML = ranking.map((p, i) => `
       <div class="score-row">
         <span class="score-rank">${i + 1}</span>
-        <span class="score-name">${App.escapeHtml(p.name)} ${p.isCorrect ? '⭕' : '❌'}</span>
+        <span class="score-name">${App.escapeHtml(p.name)} ${p.isCorrect === null ? '➖' : p.isCorrect ? '⭕' : '❌'}</span>
         <span class="score-pts">${p.score}pt</span>
       </div>
     `).join('');
@@ -761,6 +984,31 @@ const Host = {
 
     App.goTo('host-final');
     this.cleanup();
+  },
+
+  async forceEndQuiz() {
+    if (!this.roomRef) return;
+    if (!confirm('クイズを終了して部屋を解放しますか？')) return;
+
+    App.showLoading();
+    try {
+      clearInterval(this.timerInterval);
+      await this.roomRef.update({ status: 'finished' });
+
+      const pSnap = await this.participantsRef.get();
+      const batch = db.batch();
+      pSnap.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      await this.roomRef.delete();
+
+      this.cleanup();
+      App.toast('クイズを終了しました');
+      App.goTo('host-menu');
+    } catch (e) {
+      console.error(e);
+      App.toast('終了に失敗しました');
+    }
+    App.hideLoading();
   },
 
   async closeRoom() {
